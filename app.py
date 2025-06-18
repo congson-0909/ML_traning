@@ -1,13 +1,24 @@
+import os
 import pickle
 import pandas as pd
 from flask import Flask, request, jsonify
 from features import *
+import gdown
+
+# Tải model từ Google Drive nếu chưa có
+MODEL_FILE_ID = "1-YTMT4u84PVxRvodHSUTMadJc38TkHBA"
+MODEL_PATH = "rf_model.pkl"
+
+if not os.path.exists(MODEL_PATH):
+    print("⬇️  Downloading rf_model.pkl from Google Drive ...")
+    gdown.download(f"https://drive.google.com/uc?id={MODEL_FILE_ID}", MODEL_PATH, quiet=False)
+    print("✅ Downloaded rf_model.pkl")
 
 # Load model
-with open("rf_model.pkl", "rb") as f:
+with open(MODEL_PATH, "rb") as f:
     model = pickle.load(f)
 
-# Load feature names
+# Load feature_names từ local
 with open("feature_names.pkl", "rb") as f:
     feature_names = pickle.load(f)
 
@@ -35,14 +46,11 @@ def extract_features(url):
     df['count-digits'] = df['url'].apply(digit_count)
     df['count-letters'] = df['url'].apply(letter_count)
     df['fd_length'] = df['url'].apply(fd_length)
-
     df['tld'] = df['url'].apply(lambda i: get_tld(i, fail_silently=True))
     df['tld_length'] = df['tld'].apply(lambda i: len(i) if i else -1)
     df.drop(columns=['url', 'tld'], inplace=True)
-    
-    # Đảm bảo đúng thứ tự
-    df = df.reindex(columns=feature_names, fill_value=0)
 
+    df = df.reindex(columns=feature_names, fill_value=0)
     return df
 
 @app.route('/predict', methods=['POST'])
@@ -57,8 +65,8 @@ def predict():
         return jsonify({"error": str(e)})
 
 @app.route('/')
-def index():
-    return "Malicious URL Detection API"
+def home():
+    return "✅ Malicious URL Detection API is running."
 
 if __name__ == '__main__':
     app.run(debug=True)
